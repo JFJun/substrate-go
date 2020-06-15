@@ -22,66 +22,64 @@ import (
 )
 
 type Client struct {
-	Rpc *util.RpcClient
-	Metadata *codes.MetadataDecoder
-	CoinType string
-	SpecVersion 	int
+	Rpc                *util.RpcClient
+	Metadata           *codes.MetadataDecoder
+	CoinType           string
+	SpecVersion        int
 	TransactionVersion int
-	genesisHash string
+	genesisHash        string
 }
 
-
-func New(url,user,password string)(*Client,error){
-	client:=new(Client)
-	if strings.HasPrefix(url,"wss") {
+func New(url, user, password string) (*Client, error) {
+	client := new(Client)
+	if strings.HasPrefix(url, "wss") {
 		//todo 连接websocket
-		return client,errors.New("do not support websocket")
+		return client, errors.New("do not support websocket")
 	}
-	client.Rpc =util.New(url,user,password)
+	client.Rpc = util.New(url, user, password)
 	//初始化运行版本
-	err:=client.initRuntimeVersion()
+	err := client.initRuntimeVersion()
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
-	return client,nil
+	return client, nil
 }
 
-
-func (client *Client)initMetaData()error{
-	metadataBytes,err:=client.Rpc.SendRequest("state_getMetadata",[]interface{}{})
+func (client *Client) initMetaData() error {
+	metadataBytes, err := client.Rpc.SendRequest("state_getMetadata", []interface{}{})
 	if err != nil {
-		return fmt.Errorf("rpc get metadata error,err=%v",err)
+		return fmt.Errorf("rpc get metadata error,err=%v", err)
 	}
-	metadata:=string(metadataBytes)
+	metadata := string(metadataBytes)
 	metadata = util.RemoveHex0x(metadata)
-	data,err:=hex.DecodeString(metadata)
+	data, err := hex.DecodeString(metadata)
 	if err != nil {
 		return err
 	}
-	m:=codes.MetadataDecoder{}
+	m := codes.MetadataDecoder{}
 	m.Init(data)
-	if err:=m.Process();err!=nil {
-		return fmt.Errorf("parse metadata error,err=%v",err)
+	if err := m.Process(); err != nil {
+		return fmt.Errorf("parse metadata error,err=%v", err)
 	}
 	client.Metadata = &m
 	return nil
 }
 
-func (client *Client)initRuntimeVersion()error{
-	data,err:=client.Rpc.SendRequest("state_getRuntimeVersion",[]interface{}{})
+func (client *Client) initRuntimeVersion() error {
+	data, err := client.Rpc.SendRequest("state_getRuntimeVersion", []interface{}{})
 	if err != nil {
-		return fmt.Errorf("init runtime version error,err=%v",err)
+		return fmt.Errorf("init runtime version error,err=%v", err)
 	}
 	var result map[string]interface{}
-	errJ:=json.Unmarshal(data,&result)
+	errJ := json.Unmarshal(data, &result)
 	if errJ != nil {
-		return fmt.Errorf("init runtime version error,err=%v",errJ)
+		return fmt.Errorf("init runtime version error,err=%v", errJ)
 	}
 	client.CoinType = strings.ToLower(result["specName"].(string))
 	client.TransactionVersion = int(result["transactionVersion"].(float64))
 	specVersion := int(result["specVersion"].(float64))
 	// metadata 会动态改变，所以通过specVersion去检测metadata的改变
-	if client.SpecVersion!=specVersion {
+	if client.SpecVersion != specVersion {
 		client.SpecVersion = specVersion
 		return client.initMetaData()
 	}
@@ -89,11 +87,47 @@ func (client *Client)initRuntimeVersion()error{
 	return nil
 }
 
-func (client *Client)GetGenesisHash()string{
-	if	client.genesisHash!=""{
+func (client *Client) GetBlockNumber(blockHash string) (int64, error) {
+	var (
+		resp []byte
+		err  error
+	)
+	if blockHash == "" {
+		blockHash, err = client.GetFinalizedHead()
+		if err != nil {
+			return -1, err
+		}
+	}
+	resp, err = client.Rpc.SendRequest("chain_getBlock", []interface{}{blockHash})
+	if err != nil {
+		return -1, err
+	}
+	var block v11.SignedBlock
+	err = json.Unmarshal(resp, &block)
+	if err != nil {
+		return -1, err
+	}
+
+	b, isOK := new(big.Int).SetString(block.Block.Header.Number[2:], 16)
+	if !isOK {
+		return -1, errors.New("parse hex block number error")
+	}
+	return b.Int64(), nil
+}
+
+func (client *Client) GetFinalizedHead() (string, error) {
+	resp, err := client.Rpc.SendRequest("chain_getFinalizedHead", []interface{}{})
+	if err != nil {
+		return "", err
+	}
+	return string(resp), nil
+}
+
+func (client *Client) GetGenesisHash() string {
+	if client.genesisHash != "" {
 		return client.genesisHash
 	}
-	resp,err:=client.Rpc.SendRequest("chain_getBlockHash",[]interface{}{0})
+	resp, err := client.Rpc.SendRequest("chain_getBlockHash", []interface{}{0})
 	if err != nil {
 		return ""
 	}
@@ -101,124 +135,125 @@ func (client *Client)GetGenesisHash()string{
 	return string(resp)
 }
 
-func (client *Client)GetAccountInfo(address string)([]byte,error){
-	errV:=client.initRuntimeVersion()
+func (client *Client) GetAccountInfo(address string) ([]byte, error) {
+	errV := client.initRuntimeVersion()
 	if errV != nil {
 		return nil, errV
 	}
-	pub,err:=ss58.DecodeToPub(address)
+	pub, err := ss58.DecodeToPub(address)
 	if err != nil {
 		return nil, err
 	}
-	key,err1:=state.CreateStorageKey(client.Metadata,"System","Account",pub,nil)
+	key, err1 := state.CreateStorageKey(client.Metadata, "System", "Account", pub, nil)
 	if err1 != nil {
-		return nil,fmt.Errorf("create stroage key error,err=%v",err1)
+		return nil, fmt.Errorf("create stroage key error,err=%v", err1)
 	}
 
-	resp,err2:=client.Rpc.SendRequest("state_getStorageAt",[]interface{}{key})
+	resp, err2 := client.Rpc.SendRequest("state_getStorageAt", []interface{}{key})
 	if err2 != nil {
-		return nil,err2
+		return nil, err2
 	}
-	respStr:=util.RemoveHex0x(string(resp))
-	data,_:=hex.DecodeString(respStr)
-	raw:=state.NewStorageDataRaw(data)
+	respStr := util.RemoveHex0x(string(resp))
+	data, _ := hex.DecodeString(respStr)
+	raw := state.NewStorageDataRaw(data)
 	var target state.AccountInfo
 	scale.NewDecoder(bytes.NewReader(raw)).Decode(&target)
-	if &target==nil {
-		return nil,fmt.Errorf("decode stroage data error,data=[%s]",data)
+	if &target == nil {
+		return nil, fmt.Errorf("decode stroage data error,data=[%s]", data)
 	}
 	return json.Marshal(target)
 }
+
 /*
 根据高度获取对应的区块信息以及交易信息
 */
-func (client *Client)GetBlockByNumber(height int64)(*v11.BlockResponse,error){
-	var(
+func (client *Client) GetBlockByNumber(height int64) (*v11.BlockResponse, error) {
+	var (
 		respData []byte
-		err error
+		err      error
 	)
-	respData,err=client.Rpc.SendRequest("chain_getBlockHash",[]interface{}{height})
-	if err != nil || len(respData)==0 {
-		return nil, fmt.Errorf("get block hash error,err=%v",err)
+	respData, err = client.Rpc.SendRequest("chain_getBlockHash", []interface{}{height})
+	if err != nil || len(respData) == 0 {
+		return nil, fmt.Errorf("get block hash error,err=%v", err)
 	}
-	blockHash:=string(respData)
+	blockHash := string(respData)
 
 	return client.GetBlockByHash(blockHash)
 }
 
-func (client *Client)GetBlockByHash(blockHash string)(*v11.BlockResponse,error){
-	var(
+func (client *Client) GetBlockByHash(blockHash string) (*v11.BlockResponse, error) {
+	var (
 		respData []byte
-		err error
+		err      error
 	)
-	errV:=client.initRuntimeVersion()
+	errV := client.initRuntimeVersion()
 	if errV != nil {
 		return nil, errV
 	}
-	respData,err=client.Rpc.SendRequest("chain_getBlock",[]interface{}{blockHash})
-	if err != nil ||len(respData)==0{
-		return nil, fmt.Errorf("get block error,err=%v",err)
+	respData, err = client.Rpc.SendRequest("chain_getBlock", []interface{}{blockHash})
+	if err != nil || len(respData) == 0 {
+		return nil, fmt.Errorf("get block error,err=%v", err)
 	}
 	var block v11.SignedBlock
-	err=json.Unmarshal(respData,&block)
+	err = json.Unmarshal(respData, &block)
 	if err != nil {
 		return nil, fmt.Errorf("parse block error")
 	}
-	blockResp :=new(v11.BlockResponse)
-	number,_:=strconv.ParseInt(util.RemoveHex0x(block.Block.Header.Number),16,64)
+	blockResp := new(v11.BlockResponse)
+	number, _ := strconv.ParseInt(util.RemoveHex0x(block.Block.Header.Number), 16, 64)
 	blockResp.Height = number
 	blockResp.ParentHash = block.Block.Header.ParentHash
 	blockResp.BlockHash = blockHash
-	if len(block.Block.Extrinsics)>0 {
+	if len(block.Block.Extrinsics) > 0 {
 		//extrinsicNum:=len(block.Block.Extrinsics)
-		err=client.parseExtrinsicByDecode(block.Block.Extrinsics,blockResp)
+		err = client.parseExtrinsicByDecode(block.Block.Extrinsics, blockResp)
 		if err != nil {
 			return nil, err
 		}
-		err = client.parseExtrinsicByStorage(blockHash,blockResp)
+		err = client.parseExtrinsicByStorage(blockHash, blockResp)
 		if err != nil {
-			return nil,err
+			return nil, err
 		}
 	}
 
-	return blockResp,nil
+	return blockResp, nil
 }
 
-func (client *Client)parseExtrinsicByDecode(extrinsics []string,blockResp *v11.BlockResponse)error{
+func (client *Client) parseExtrinsicByDecode(extrinsics []string, blockResp *v11.BlockResponse) error {
 	var (
-		params []v11.ExtrinsicDecodeParam
-		from ,to,sig,era string
-		nonce,timestamp int64
+		params             []v11.ExtrinsicDecodeParam
+		from, to, sig, era string
+		nonce, timestamp   int64
 	)
-	for _,extrinsic:=range extrinsics{
-		e:= codes.ExtrinsicDecoder{}
+	for _, extrinsic := range extrinsics {
+		e := codes.ExtrinsicDecoder{}
 		option := types.ScaleDecoderOption{Metadata: &client.Metadata.Metadata}
 		e.Init(types.ScaleBytes{Data: utiles.HexToBytes(extrinsic)}, &option)
 		e.Process()
-		bb,err:=json.Marshal(e.Value)
+		bb, err := json.Marshal(e.Value)
 		if err != nil {
-			return fmt.Errorf("parse extrinsic error,err=%v",err)
+			return fmt.Errorf("parse extrinsic error,err=%v", err)
 		}
 		var resp v11.ExtrinsicDecodeResponse
-		errM:=json.Unmarshal(bb,&resp)
+		errM := json.Unmarshal(bb, &resp)
 		if errM != nil {
-			return fmt.Errorf("json unmarshal extrinsic error,err=%v",errM)
+			return fmt.Errorf("json unmarshal extrinsic error,err=%v", errM)
 		}
 		switch resp.CallModule {
 		case "Timestamp":
-			params = append(params,resp.Params...)
+			params = append(params, resp.Params...)
 		case "Balances":
-			from,_=ss58.EncodeByPubHex(resp.AccountId,config.PrefixMap[client.CoinType])
+			from, _ = ss58.EncodeByPubHex(resp.AccountId, config.PrefixMap[client.CoinType])
 			era = resp.Era
 			sig = resp.Signature
 			nonce = resp.Nonce
-			params = append(params,resp.Params...)
-		case "Claims":		//crab 转账call_module
-			from,_=ss58.EncodeByPubHex(resp.AccountId,config.PrefixMap[client.CoinType])
+			params = append(params, resp.Params...)
+		case "Claims": //crab 转账call_module
+			from, _ = ss58.EncodeByPubHex(resp.AccountId, config.PrefixMap[client.CoinType])
 			era = resp.Era
 			sig = resp.Signature
 			nonce = resp.Nonce
-			params = append(params,resp.Params...)
+			params = append(params, resp.Params...)
 		default:
 			//todo  add another call_module 币种不同可能使用的call_module不一样
 			continue
@@ -227,16 +262,16 @@ func (client *Client)parseExtrinsicByDecode(extrinsics []string,blockResp *v11.B
 	}
 
 	//解析params
-	if len(params)==0 {
+	if len(params) == 0 {
 		return errors.New("block extrinsic params is null")
 	}
-	for _,param:=range params{
+	for _, param := range params {
 
-		if param.Name=="now" {
+		if param.Name == "now" {
 			timestamp = int64(param.Value.(float64))
 		}
-		if	param.Name=="dest"{
-			to,_=ss58.EncodeByPubHex(param.ValueRaw,config.PrefixMap[client.CoinType])
+		if param.Name == "dest" {
+			to, _ = ss58.EncodeByPubHex(param.ValueRaw, config.PrefixMap[client.CoinType])
 		}
 	}
 	blockResp.Extrinsic.Signature = sig
@@ -248,59 +283,58 @@ func (client *Client)parseExtrinsicByDecode(extrinsics []string,blockResp *v11.B
 	return nil
 }
 
-func (client *Client)parseExtrinsicByStorage(blockHash string,blockResp *v11.BlockResponse)error{
+func (client *Client) parseExtrinsicByStorage(blockHash string, blockResp *v11.BlockResponse) error {
 	var (
-		err error
-		key string
+		err  error
+		key  string
 		resp []byte
-
 	)
-	key,err =state.CreateStorageKey(client.Metadata,"System","Events",nil,nil)
+	key, err = state.CreateStorageKey(client.Metadata, "System", "Events", nil, nil)
 	if err != nil {
-		return fmt.Errorf("create stroage key error,err=%v",err)
+		return fmt.Errorf("create stroage key error,err=%v", err)
 	}
-	resp,err=client.Rpc.SendRequest("state_getStorageAt",[]interface{}{key,blockHash})
-	if err != nil ||len(resp)<=0{
-		return fmt.Errorf("get system events error,err=%v",err)
+	resp, err = client.Rpc.SendRequest("state_getStorageAt", []interface{}{key, blockHash})
+	if err != nil || len(resp) <= 0 {
+		return fmt.Errorf("get system events error,err=%v", err)
 	}
-	eventsHex:=string(resp)
+	eventsHex := string(resp)
 	//解析events
 	option := types.ScaleDecoderOption{Metadata: &client.Metadata.Metadata, Spec: client.SpecVersion}
-	ccHex:=config.CoinEventType[client.CoinType]
-	cc,_:=hex.DecodeString(ccHex)
+	ccHex := config.CoinEventType[client.CoinType]
+	cc, _ := hex.DecodeString(ccHex)
 	types.RegCustomTypes(source.LoadTypeRegistry(cc))
 	e := codes.EventsDecoder{}
 	e.Init(types.ScaleBytes{Data: utiles.HexToBytes(eventsHex)}, &option)
 	e.Process()
-	data,err1:=json.Marshal(e.Value)
+	data, err1 := json.Marshal(e.Value)
 	if err1 != nil {
 		return err
 	}
 	var eventResp []v11.EventResponse
-	err=json.Unmarshal(data,&eventResp)
+	err = json.Unmarshal(data, &eventResp)
 	if err != nil {
-		return fmt.Errorf("parse events error,err=%v",err)
+		return fmt.Errorf("parse events error,err=%v", err)
 	}
-	if len(eventResp)>0 {
-		var(
-			defaultSuccess  = "success"
-			extrinsicIdx = -1
+	if len(eventResp) > 0 {
+		var (
+			defaultSuccess = "success"
+			extrinsicIdx   = -1
 		)
-		for _,event:=range eventResp{
+		for _, event := range eventResp {
 			switch event.EventId {
 			case config.ExtrinsicFailed:
 				defaultSuccess = "failed"
 				break
-			case config.Transfer :
+			case config.Transfer:
 				blockResp.Extrinsic.Type = "transfer"
-				if event.ModuleId=="Balances" {
+				if event.ModuleId == "Balances" {
 					extrinsicIdx = event.ExtrinsicIdx
-					if len(event.Params)<=0 {
+					if len(event.Params) <= 0 {
 						defaultSuccess = "failed"
 						break
 					}
-					for _,param:=range event.Params{
-						if param.Type=="Balance" {
+					for _, param := range event.Params {
+						if param.Type == "Balance" {
 							blockResp.Extrinsic.Amount = param.Value.(string)
 						}
 					}
@@ -311,11 +345,11 @@ func (client *Client)parseExtrinsicByStorage(blockHash string,blockResp *v11.Blo
 		}
 		//设置交易状态
 		blockResp.Status = defaultSuccess
-		if defaultSuccess=="failed" {
+		if defaultSuccess == "failed" {
 			return nil
 		}
 		//在做一次for循环计算手续费
-		blockResp.Extrinsic.Fee=client.calcFee(eventResp,extrinsicIdx)
+		blockResp.Extrinsic.Fee = client.calcFee(eventResp, extrinsicIdx)
 	}
 	return err
 }
@@ -323,38 +357,38 @@ func (client *Client)parseExtrinsicByStorage(blockHash string,blockResp *v11.Blo
 /*
 todo maybe have anther fee events
 */
-func (client *Client)calcFee(events []v11.EventResponse,extrinsicIdx int)string{
-	fee:=new(big.Int).SetInt64(0)
-	for _,event:=range events{
-		if event.ExtrinsicIdx==extrinsicIdx {
+func (client *Client) calcFee(events []v11.EventResponse, extrinsicIdx int) string {
+	fee := new(big.Int).SetInt64(0)
+	for _, event := range events {
+		if event.ExtrinsicIdx == extrinsicIdx {
 			if config.IsContainFeeEventId(event.EventId) {
 				switch event.ModuleId {
 				case "Treasury":
-					if len(event.Params)==0 {
+					if len(event.Params) == 0 {
 						continue
 					}
-					for _,param:=range event.Params{
-						if strings.Contains(param.Type,"Balance") {
-							value:=param.Value.(string)
-							subFee,isOk:=new(big.Int).SetString(value,10)
+					for _, param := range event.Params {
+						if strings.Contains(param.Type, "Balance") {
+							value := param.Value.(string)
+							subFee, isOk := new(big.Int).SetString(value, 10)
 							if !isOk {
 								continue
 							}
-							fee = fee.Add(fee,subFee)
+							fee = fee.Add(fee, subFee)
 						}
 					}
 				case "Balances":
-					if len(event.Params)==0 {
+					if len(event.Params) == 0 {
 						continue
 					}
-					for _,param:=range event.Params{
-						if strings.Contains(param.Type,"Balance") {
-							value:=param.Value.(string)
-							subFee,isOk:=new(big.Int).SetString(value,10)
+					for _, param := range event.Params {
+						if strings.Contains(param.Type, "Balance") {
+							value := param.Value.(string)
+							subFee, isOk := new(big.Int).SetString(value, 10)
 							if !isOk {
 								continue
 							}
-							fee = fee.Add(fee,subFee)
+							fee = fee.Add(fee, subFee)
 						}
 					}
 
@@ -364,6 +398,5 @@ func (client *Client)calcFee(events []v11.EventResponse,extrinsicIdx int)string{
 			}
 		}
 	}
-	return  fee.String()
+	return fee.String()
 }
-
