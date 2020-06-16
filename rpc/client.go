@@ -219,13 +219,29 @@ func (client *Client) GetBlockByHash(blockHash string) (*v11.BlockResponse, erro
 	return blockResp, nil
 }
 
+type parseBlockExtrinsicParams struct {
+	from, to, sig, era string
+	nonce              int64
+	extrinsicIdx       int
+}
+
 func (client *Client) parseExtrinsicByDecode(extrinsics []string, blockResp *v11.BlockResponse) error {
+
 	var (
-		params             []v11.ExtrinsicDecodeParam
-		from, to, sig, era string
-		nonce, timestamp   int64
+		params    []parseBlockExtrinsicParams
+		timestamp int64
+		//idx int
 	)
-	for _, extrinsic := range extrinsics {
+	defer func() {
+		if err := recover(); err != nil {
+			blockResp.Timestamp = timestamp
+			blockResp.Extrinsic = []*v11.ExtrinsicResponse{}
+			fmt.Printf("panic unkown decode type: err=%v\n", err)
+		}
+	}()
+
+	for i, extrinsic := range extrinsics {
+		//idx = i
 		e := codes.ExtrinsicDecoder{}
 		option := types.ScaleDecoderOption{Metadata: &client.Metadata.Metadata}
 		e.Init(types.ScaleBytes{Data: utiles.HexToBytes(extrinsic)}, &option)
@@ -241,45 +257,64 @@ func (client *Client) parseExtrinsicByDecode(extrinsics []string, blockResp *v11
 		}
 		switch resp.CallModule {
 		case "Timestamp":
-			params = append(params, resp.Params...)
+			for _, param := range resp.Params {
+				if param.Name == "now" {
+					timestamp = int64(param.Value.(float64))
+				}
+			}
 		case "Balances":
-			from, _ = ss58.EncodeByPubHex(resp.AccountId, config.PrefixMap[client.CoinType])
-			era = resp.Era
-			sig = resp.Signature
-			nonce = resp.Nonce
-			params = append(params, resp.Params...)
+			blockData := parseBlockExtrinsicParams{}
+			blockData.from, _ = ss58.EncodeByPubHex(resp.AccountId, config.PrefixMap[client.CoinType])
+			blockData.era = resp.Era
+			blockData.sig = resp.Signature
+			blockData.nonce = resp.Nonce
+			blockData.extrinsicIdx = i
+			for _, param := range resp.Params {
+				if param.Name == "dest" {
+					blockData.to, _ = ss58.EncodeByPubHex(param.ValueRaw, config.PrefixMap[client.CoinType])
+				}
+			}
+
+			params = append(params, blockData)
 		case "Claims": //crab 转账call_module
-			from, _ = ss58.EncodeByPubHex(resp.AccountId, config.PrefixMap[client.CoinType])
-			era = resp.Era
-			sig = resp.Signature
-			nonce = resp.Nonce
-			params = append(params, resp.Params...)
+			blockData := parseBlockExtrinsicParams{}
+			blockData.from, _ = ss58.EncodeByPubHex(resp.AccountId, config.PrefixMap[client.CoinType])
+			blockData.era = resp.Era
+			blockData.sig = resp.Signature
+			blockData.nonce = resp.Nonce
+			blockData.extrinsicIdx = i
+			for _, param := range resp.Params {
+				if param.Name == "dest" {
+					blockData.to, _ = ss58.EncodeByPubHex(param.ValueRaw, config.PrefixMap[client.CoinType])
+				}
+			}
+			params = append(params, blockData)
 		default:
 			//todo  add another call_module 币种不同可能使用的call_module不一样
 			continue
 		}
 
 	}
-
+	blockResp.Timestamp = timestamp
 	//解析params
 	if len(params) == 0 {
-		return errors.New("block extrinsic params is null")
-	}
-	for _, param := range params {
 
-		if param.Name == "now" {
-			timestamp = int64(param.Value.(float64))
-		}
-		if param.Name == "dest" {
-			to, _ = ss58.EncodeByPubHex(param.ValueRaw, config.PrefixMap[client.CoinType])
-		}
+		blockResp.Extrinsic = []*v11.ExtrinsicResponse{}
+		return nil
 	}
-	blockResp.Extrinsic.Signature = sig
-	blockResp.Extrinsic.FromAddress = from
-	blockResp.Extrinsic.ToAddress = to
-	blockResp.Extrinsic.Nonce = nonce
-	blockResp.Extrinsic.Era = era
-	blockResp.Timestamp = timestamp
+	blockResp.Extrinsic = make([]*v11.ExtrinsicResponse, len(params))
+	for idx, param := range params {
+
+		e := new(v11.ExtrinsicResponse)
+		e.Signature = param.sig
+		e.FromAddress = param.from
+		e.ToAddress = param.to
+		e.Nonce = param.nonce
+		e.Era = param.era
+		e.ExtrinsicIndex = param.extrinsicIdx
+		blockResp.Extrinsic[idx] = e
+	}
+
 	return nil
 }
 
@@ -316,40 +351,48 @@ func (client *Client) parseExtrinsicByStorage(blockHash string, blockResp *v11.B
 		return fmt.Errorf("parse events error,err=%v", err)
 	}
 	if len(eventResp) > 0 {
-		var (
-			defaultSuccess = "success"
-			extrinsicIdx   = -1
-		)
+
 		for _, event := range eventResp {
+			var (
+				defaultSuccess = "success"
+				amount         = "0"
+			)
 			switch event.EventId {
 			case config.ExtrinsicFailed:
 				defaultSuccess = "failed"
 				break
 			case config.Transfer:
-				blockResp.Extrinsic.Type = "transfer"
 				if event.ModuleId == "Balances" {
-					extrinsicIdx = event.ExtrinsicIdx
 					if len(event.Params) <= 0 {
 						defaultSuccess = "failed"
 						break
 					}
 					for _, param := range event.Params {
 						if param.Type == "Balance" {
-							blockResp.Extrinsic.Amount = param.Value.(string)
+							amount = param.Value.(string)
 						}
 					}
 				}
 			default:
 				continue
 			}
+			for _, e := range blockResp.Extrinsic {
+				if e.ExtrinsicIndex == event.ExtrinsicIdx {
+					e.Type = "transfer"
+					e.Amount = amount
+					e.Status = defaultSuccess
+					e.Fee = client.calcFee(eventResp, event.ExtrinsicIdx)
+				}
+			}
+
 		}
-		//设置交易状态
-		blockResp.Status = defaultSuccess
-		if defaultSuccess == "failed" {
-			return nil
-		}
-		//在做一次for循环计算手续费
-		blockResp.Extrinsic.Fee = client.calcFee(eventResp, extrinsicIdx)
+		////设置交易状态
+		//blockResp.Status = defaultSuccess
+		//if defaultSuccess=="failed" {
+		//	return nil
+		//}
+		////在做一次for循环计算手续费
+		//blockResp.Extrinsic.Fee=client.calcFee(eventResp,extrinsicIdx)
 	}
 	return err
 }

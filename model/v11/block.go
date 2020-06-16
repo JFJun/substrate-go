@@ -8,23 +8,22 @@ import (
 )
 
 type SignedBlock struct {
-	Block Block				`json:"block"`
-	Justification Bytes		`json:"justification"`
+	Block         Block `json:"block"`
+	Justification Bytes `json:"justification"`
 }
 
 type Block struct {
-	Extrinsics 	   []string		 `json:"extrinsics"`
-	Header Header				 `json:"header"`
+	Extrinsics []string `json:"extrinsics"`
+	Header     Header   `json:"header"`
 }
 
 type Header struct {
-	ParentHash     string        `json:"parentHash"`
-	Number         string 	 	`json:"number"`
-	StateRoot      string        `json:"stateRoot"`
-	ExtrinsicsRoot string        `json:"extrinsicsRoot"`
+	ParentHash     string `json:"parentHash"`
+	Number         string `json:"number"`
+	StateRoot      string `json:"stateRoot"`
+	ExtrinsicsRoot string `json:"extrinsicsRoot"`
 	//Digest         interface{}   `json:"digest"`
 }
-
 
 type BlockNumber util.U32
 
@@ -66,22 +65,22 @@ func (b *BlockNumber) Decode(decoder util.Decoder) error {
 //===================================response block
 
 type BlockResponse struct {
-	Height 		int64					`json:"height"`
-	ParentHash	string					`json:"parent_hash"`
-	BlockHash 	string					`json:"block_hash"`
-	Timestamp 	int64					`json:"timestamp"`
-	Extrinsic 	ExtrinsicResponse		`json:"extrinsic"`
-	Status 				string			`json:"status"`			//success or fail
-	
+	Height     int64                `json:"height"`
+	ParentHash string               `json:"parent_hash"`
+	BlockHash  string               `json:"block_hash"`
+	Timestamp  int64                `json:"timestamp"`
+	Extrinsic  []*ExtrinsicResponse `json:"extrinsic"`
 }
 
 type ExtrinsicResponse struct {
-	Type 				string			`json:"type"`			//Transfer or another
-	FromAddress 		string			`json:"from_address"`
-	ToAddress			string			`json:"to_address"`
-	Amount 				string			`json:"amount"`
-	Fee 				string			`json:"fee"`
-	Signature 			string			`json:"signature"`
-	Nonce 				int64			`json:"nonce"`
-	Era					string			`json:"era"`
+	Type           string `json:"type"`   //Transfer or another
+	Status         string `json:"status"` //success or fail
+	FromAddress    string `json:"from_address"`
+	ToAddress      string `json:"to_address"`
+	Amount         string `json:"amount"`
+	Fee            string `json:"fee"`
+	Signature      string `json:"signature"`
+	Nonce          int64  `json:"nonce"`
+	Era            string `json:"era"`
+	ExtrinsicIndex int    `json:"extrinsic_index"`
 }
