@@ -16,6 +16,7 @@ import (
 	"github.com/freehere107/go-scale-codec/source"
 	"github.com/freehere107/go-scale-codec/types"
 	"github.com/freehere107/go-scale-codec/utiles"
+	"golang.org/x/crypto/blake2b"
 	"math/big"
 	"strconv"
 	"strings"
@@ -220,9 +221,9 @@ func (client *Client) GetBlockByHash(blockHash string) (*v11.BlockResponse, erro
 }
 
 type parseBlockExtrinsicParams struct {
-	from, to, sig, era string
-	nonce              int64
-	extrinsicIdx       int
+	from, to, sig, era, txid string
+	nonce                    int64
+	extrinsicIdx             int
 }
 
 func (client *Client) parseExtrinsicByDecode(extrinsics []string, blockResp *v11.BlockResponse) error {
@@ -269,6 +270,7 @@ func (client *Client) parseExtrinsicByDecode(extrinsics []string, blockResp *v11
 			blockData.sig = resp.Signature
 			blockData.nonce = resp.Nonce
 			blockData.extrinsicIdx = i
+			blockData.txid = createTxHash(extrinsic)
 			for _, param := range resp.Params {
 				if param.Name == "dest" {
 					blockData.to, _ = ss58.EncodeByPubHex(param.ValueRaw, config.PrefixMap[client.CoinType])
@@ -283,6 +285,7 @@ func (client *Client) parseExtrinsicByDecode(extrinsics []string, blockResp *v11
 			blockData.sig = resp.Signature
 			blockData.nonce = resp.Nonce
 			blockData.extrinsicIdx = i
+			blockData.txid = createTxHash(extrinsic)
 			for _, param := range resp.Params {
 				if param.Name == "dest" {
 					blockData.to, _ = ss58.EncodeByPubHex(param.ValueRaw, config.PrefixMap[client.CoinType])
@@ -312,6 +315,7 @@ func (client *Client) parseExtrinsicByDecode(extrinsics []string, blockResp *v11
 		e.Nonce = param.nonce
 		e.Era = param.era
 		e.ExtrinsicIndex = param.extrinsicIdx
+		e.Txid = param.txid
 		blockResp.Extrinsic[idx] = e
 	}
 
@@ -442,4 +446,10 @@ func (client *Client) calcFee(events []v11.EventResponse, extrinsicIdx int) stri
 		}
 	}
 	return fee.String()
+}
+
+func createTxHash(extrinsic string) string {
+	data, _ := hex.DecodeString(util.RemoveHex0x(extrinsic))
+	d := blake2b.Sum256(data)
+	return "0x" + hex.EncodeToString(d[:])
 }

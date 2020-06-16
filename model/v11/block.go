@@ -75,6 +75,7 @@ type BlockResponse struct {
 type ExtrinsicResponse struct {
 	Type           string `json:"type"`   //Transfer or another
 	Status         string `json:"status"` //success or fail
+	Txid           string `json:"txid"`
 	FromAddress    string `json:"from_address"`
 	ToAddress      string `json:"to_address"`
 	Amount         string `json:"amount"`
