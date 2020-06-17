@@ -12,47 +12,47 @@ import (
 )
 
 type Transaction struct {
-	SenderPubkey string `json:"sender_pubkey"`		// from address public key ,0x开头
-	RecipientPubkey string `json:"recipient_pubkey"`// to address public key ,0x开头
-	Amount uint64 `json:"amount"`					// 转账金额
-	Nonce uint64 `json:"nonce"`						//nonce值
-	Fee uint64 `json:"fee"`							//手续费
-	BlockHeight uint64 `json:"block_height"`		//最新区块高度
-	BlockHash string `json:"block_hash"`			//最新区块hash
-	GenesisHash string `json:"genesis_hash"`		//
-	SpecVersion uint32 `json:"spec_version"`
-	TransactionVersion uint32 	`json:"transaction_version"`
-	CallId   	string	`json:"call_id"`			//
+	SenderPubkey       string `json:"sender_pubkey"`    // from address public key ,0x开头
+	RecipientPubkey    string `json:"recipient_pubkey"` // to address public key ,0x开头
+	Amount             uint64 `json:"amount"`           // 转账金额
+	Nonce              uint64 `json:"nonce"`            //nonce值
+	Fee                uint64 `json:"fee"`              //手续费
+	BlockHeight        uint64 `json:"block_height"`     //最新区块高度
+	BlockHash          string `json:"block_hash"`       //最新区块hash
+	GenesisHash        string `json:"genesis_hash"`     //
+	SpecVersion        uint32 `json:"spec_version"`
+	TransactionVersion uint32 `json:"transaction_version"`
+	CallId             string `json:"call_id"` //
 }
 
 /*
 	GenesisHash string
 	SpecVersion uint32
 */
-func CreateTransaction(from,to string,amount,nonce,fee uint64)*Transaction{
-	tx:=Transaction{
-		SenderPubkey: AddressToPublicKey(from),
+func CreateTransaction(from, to string, amount, nonce, fee uint64) *Transaction {
+	tx := Transaction{
+		SenderPubkey:    AddressToPublicKey(from),
 		RecipientPubkey: AddressToPublicKey(to),
-		Amount: amount,
-		Nonce: nonce,
-		Fee: fee,
+		Amount:          amount,
+		Nonce:           nonce,
+		Fee:             fee,
 	}
 	return &tx
 }
 
-func (tx *Transaction)SetGenesisHashAndBlockHash(genesisHash,blockHash string,blockNumber uint64){
+func (tx *Transaction) SetGenesisHashAndBlockHash(genesisHash, blockHash string, blockNumber uint64) {
 	tx.GenesisHash = Remove0X(genesisHash)
 	tx.BlockHash = Remove0X(blockHash)
 	tx.BlockHeight = blockNumber
 }
 
-func (tx *Transaction)SetSpecVersionAndCallId(specVersion,transactionVersion uint32,callId string){
+func (tx *Transaction) SetSpecVersionAndCallId(specVersion, transactionVersion uint32, callId string) {
 	tx.SpecVersion = specVersion
 	tx.TransactionVersion = transactionVersion
 	tx.CallId = callId
 
 }
-func (tx *Transaction)CreateEmptyTransactionAndMessage()(string,string,error){
+func (tx *Transaction) CreateEmptyTransactionAndMessage() (string, string, error) {
 	tp, err := tx.NewTxPayload()
 	if err != nil {
 		return "", "", err
@@ -61,30 +61,28 @@ func (tx *Transaction)CreateEmptyTransactionAndMessage()(string,string,error){
 	return tx.ToJSONString(), tp.ToBytesString(), nil
 }
 
-func (*Transaction)SignTransaction(private,message string)(string,error){
+func (*Transaction) SignTransaction(private, message string) (string, error) {
 	message = Remove0X(message)
-	messageBytes,err:=hex.DecodeString(message)
+	messageBytes, err := hex.DecodeString(message)
 	if err != nil {
 		return "", err
 	}
 	private = Remove0X(private)
-	priv,err1:=hex.DecodeString(private)
+	priv, err1 := hex.DecodeString(private)
 	if err1 != nil {
-		return "",err1
+		return "", err1
 	}
-	sig,err2:=sr25519.Sign(priv,messageBytes)
+	sig, err2 := sr25519.Sign(priv, messageBytes)
 	if err2 != nil {
-		return "",err2
+		return "", err2
 	}
-	if len(sig)!=64 {
-		return "",errors.New("sign fail,sig length is not equal 64")
+	if len(sig) != 64 {
+		return "", errors.New("sign fail,sig length is not equal 64")
 	}
-	return hex.EncodeToString(sig),nil
+	return hex.EncodeToString(sig), nil
 }
 
-
-
-func (tx *Transaction)NewTxPayload()(*TxPayLoad,error){
+func (tx *Transaction) NewTxPayload() (*TxPayLoad, error) {
 	var tp TxPayLoad
 	method, err := NewMethodTransfer(tx.RecipientPubkey, tx.Amount)
 
@@ -93,9 +91,9 @@ func (tx *Transaction)NewTxPayload()(*TxPayLoad,error){
 	}
 
 	tp.Method, err = method.ToBytes(tx.CallId)
-	//fmt.Println("Method: ",hex.EncodeToString(tp.Method))
+
 	if err != nil {
-		return  nil, err
+		return nil, err
 	}
 
 	if tx.BlockHeight == 0 {
@@ -129,7 +127,7 @@ func (tx *Transaction)NewTxPayload()(*TxPayLoad,error){
 	binary.LittleEndian.PutUint32(specv, tx.SpecVersion)
 	tp.SpecVersion = specv
 	// 2020/6/15 add transaction version
-	transV:=make([]byte,4)
+	transV := make([]byte, 4)
 	binary.LittleEndian.PutUint32(transV, tx.TransactionVersion)
 	tp.TransactionVersion = transV
 
@@ -184,30 +182,30 @@ func (tx *Transaction) ToJSONString() string {
 
 	return string(j)
 }
-func AddressToPublicKey(address string)string{
-	if address==""{
+func AddressToPublicKey(address string) string {
+	if address == "" {
 		return ""
 	}
-	pub,err:=ss58.DecodeToPub(address)
+	pub, err := ss58.DecodeToPub(address)
 
 	if err != nil {
 		return ""
 	}
-	if len(pub)!=32{
+	if len(pub) != 32 {
 		return ""
 	}
-	pubHex:=hex.EncodeToString(pub)
+	pubHex := hex.EncodeToString(pub)
 	return pubHex
 }
 
-func Remove0X(hexData string)string{
-	if strings.HasPrefix(hexData,"0x") {
+func Remove0X(hexData string) string {
+	if strings.HasPrefix(hexData, "0x") {
 		return hexData[2:]
 	}
 	return hexData
 }
 
-func(tx *Transaction) GetSignTransaction(signature string)(string,error){
+func (tx *Transaction) GetSignTransaction(signature string) (string, error) {
 	signed := make([]byte, 0)
 
 	signed = append(signed, SigningBitV4)
@@ -235,7 +233,6 @@ func(tx *Transaction) GetSignTransaction(signature string)(string,error){
 		return "", errors.New("invalid block height")
 	}
 
-
 	signed = append(signed, GetEra(tx.BlockHeight)...)
 
 	if tx.Nonce == 0 {
@@ -249,20 +246,36 @@ func(tx *Transaction) GetSignTransaction(signature string)(string,error){
 		nonceBytes, _ := hex.DecodeString(nonce)
 		signed = append(signed, nonceBytes...)
 		//fmt.Println("nonce",nonce)
+		//uNonce:=types.UCompact(tx.Nonce)
+		//var buf = bytes.Buffer{}
+		//s:=scale.NewEncoder(&buf)
+		//errA:=uNonce.Encode(*s)
+		//if errA != nil {
+		//	return "", fmt.Errorf("encode ucompact nonce error,Err=[%v]",errA)
+		//}
+		//signed = append(signed,buf.Bytes()...)
 	}
 
-	feeBytes := make([]byte, 0)
 	if tx.Fee == 0 {
 		//return "", errors.New("a none zero fee must be payed")
-		feeBytes = []byte{0}
+		signed = append(signed, []byte{0}...)
 	} else {
 		fee, err := codec.Encode(Compact_U32, uint64(tx.Fee))
 		if err != nil {
 			return "", err
 		}
-		feeBytes, _ = hex.DecodeString(fee)
+		feeBytes, _ := hex.DecodeString(fee)
+		signed = append(signed, feeBytes...)
+		//uTip:=types.UCompact(tx.Fee)
+		//var buf = bytes.Buffer{}
+		//s:=scale.NewEncoder(&buf)
+		//errA:=uTip.Encode(*s)
+		//if errA != nil {
+		//	return "", fmt.Errorf("encode ucompact nonce error,Err=[%v]",errA)
+		//}
+		//signed = append(signed, buf.Bytes()...)
 	}
-	signed = append(signed, feeBytes...)
+
 	method, err := NewMethodTransfer(tx.RecipientPubkey, tx.Amount)
 	if err != nil {
 		return "", err
