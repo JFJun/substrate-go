@@ -309,7 +309,7 @@ func (client *Client) parseExtrinsicByDecode(extrinsics []string, blockResp *v11
 	for idx, param := range params {
 		// write by jun 2020/06/18
 		// 避免不同高度出现相同txid的情况  详情高度： 552851  552911
-		txid := fmt.Sprintf("%s_%d-%d", param.txid, blockResp.Height, param.extrinsicIdx)
+		//txid := fmt.Sprintf("%s_%d-%d", param.txid, blockResp.Height, param.extrinsicIdx)
 		e := new(v11.ExtrinsicResponse)
 		e.Signature = param.sig
 		e.FromAddress = param.from
@@ -317,7 +317,8 @@ func (client *Client) parseExtrinsicByDecode(extrinsics []string, blockResp *v11
 		e.Nonce = param.nonce
 		e.Era = param.era
 		e.ExtrinsicIndex = param.extrinsicIdx
-		e.Txid = txid
+		//e.Txid = txid
+		e.Txid = param.txid
 		blockResp.Extrinsic[idx] = e
 	}
 

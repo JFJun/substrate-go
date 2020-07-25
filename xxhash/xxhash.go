@@ -17,9 +17,8 @@
 package xxhash
 
 import (
-	"hash"
-
 	"github.com/pierrec/xxHash/xxHash64"
+	"hash"
 )
 
 const (
