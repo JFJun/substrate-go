@@ -25,6 +25,15 @@ var BaseType = `{
       "Default"
     ]
   },
+  "StoredState": {
+    "type": "enum",
+    "value_list": [
+      "Live",
+      "PendingPause",
+      "Paused",
+      "PendingResume"
+    ]
+  },
   "StorageFunctionType": {
     "type": "enum",
     "value_list": [
@@ -33,6 +42,21 @@ var BaseType = `{
       "DoubleMapType"
     ]
   },
+  "Conviction": {
+    "type": "enum",
+    "value_list": [
+      "None",
+      "Locked1x",
+      "Locked2x",
+      "Locked3x",
+      "Locked4x",
+      "Locked5x",
+      "Locked6x"
+    ]
+  },
+  "ElectionScore": "[u128; 3]",
+  "Text": "Bytes",
+  "LookupSource": "AccountId",
   "SetId": "U64",
   "RoundNumber": "U64",
   "SessionIndex": "U32",
@@ -64,7 +88,6 @@ var BaseType = `{
   "<AuthorityId as RuntimeAppPublic>::Signature": "Signature",
   "&[u8]": "Bytes",
   "ConsensusEngineId": "[u8; 4]",
-  "SpanIndex": "u32",
   "StrikeCount": "u32",
   "RefCount": "u8",
   "ValidatorId": "AccountId",
@@ -72,6 +95,7 @@ var BaseType = `{
   "PhragmenScore": "[u128; 3]",
   "schnorrkel::Randomness": "Hash",
   "schnorrkel::RawVRFOutput": "[u8; 32]",
+  "VrfOutput": "[u8; 32]",
   "NominatorIndex": "u32",
   "PerU16": "u16",
   "OffchainAccuracy": "u16",
@@ -90,8 +114,185 @@ var BaseType = `{
   "Perbill": "u32",
   "Proposal": "BoxProposal",
   "AuthoritySignature": "Signature",
+  "CollatorSignature": "Signature",
   "VrfData": "[u8; 32]",
   "VrfProof": "[u8; 64]",
+  "DigestOf": "Digest",
+  "Permill": "u32",
+  "Percent": "u8",
+  "HeadData": "Bytes",
+  "Remark": "[u8; 32]",
+  "ValidatorSignature": "Signature",
+  "Status": "BalanceStatus",
+  "weights::ExtrinsicsWeight": "ExtrinsicsWeight",
+  "OpenTipTip": "(AccountId, Balance)",
+  "RewardPoint": "u32",
+  "CodeHash": "Hash",
+  "Linkage": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "previous",
+        "Option<AccountId>"
+      ],
+      [
+        "next",
+        "Option<AccountId>"
+      ]
+    ]
+  },
+  "Keys": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "grandpa",
+        "AccountId"
+      ],
+      [
+        "babe",
+        "AccountId"
+      ],
+      [
+        "im_online",
+        "AccountId"
+      ],
+      [
+        "authority_discovery",
+        "AccountId"
+      ]
+    ]
+  },
+  "IncludedBlocks": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "actualNumber",
+        "BlockNumber"
+      ],
+      [
+        "session",
+        "SessionIndex"
+      ],
+      [
+        "randomSeed",
+        "H256"
+      ],
+      [
+        "activeParachains",
+        "Vec<ParaId>"
+      ],
+      [
+        "paraBlocks",
+        "Vec<Hash>"
+      ]
+    ]
+  },
+  "BlockAttestations": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "receipt",
+        "CandidateReceipt"
+      ],
+      [
+        "valid",
+        "Vec<AccountId>"
+      ],
+      [
+        "invalid",
+        "Vec<AccountId>"
+      ]
+    ]
+  },
+  "EraRewardPoints": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "total",
+        "RewardPoint"
+      ],
+      [
+        "individual",
+        "Vec<(AccountId, RewardPoint)>"
+      ]
+    ]
+  },
+  "SpanIndex": "u32",
+  "slashing::SpanIndex": "SpanIndex",
+  "SlashingSpans": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "spanIndex",
+        "SpanIndex"
+      ],
+      [
+        "lastStart",
+        "EraIndex"
+      ],
+      [
+        "lastNonzeroSlash",
+        "EraIndex"
+      ],
+      [
+        "prior",
+        "Vec<EraIndex>"
+      ]
+    ]
+  },
+  "slashing::SlashingSpans": "SlashingSpans",
+  "SpanRecord": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "slashed",
+        "Balance"
+      ],
+      [
+        "paidOut",
+        "Balance"
+      ]
+    ]
+  },
+  "slashing::SpanRecord<BalanceOf>": "SpanRecord",
+  "UnappliedSlashOther": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "account",
+        "AccountId"
+      ],
+      [
+        "amount",
+        "Balance"
+      ]
+    ]
+  },
+  "UnappliedSlash<AccountId, BalanceOf>": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "validator",
+        "AccountId"
+      ],
+      [
+        "own",
+        "AccountId"
+      ],
+      [
+        "others",
+        "Vec<UnappliedSlashOther>"
+      ],
+      [
+        "reporters",
+        "Vec<AccountId>"
+      ],
+      [
+        "payout",
+        "Balance"
+      ]
+    ]
+  },
   "KeyValue": {
     "type": "struct",
     "type_mapping": [
@@ -220,11 +421,15 @@ var BaseType = `{
     "type_mapping": [
       [
         "candidate",
-        "CandidateReceipt"
+        "AbridgedCandidateReceipt"
       ],
       [
         "validityVotes",
-        "Vec<ValidityVote>"
+        "Vec<ValidityAttestation>"
+      ],
+      [
+        "validatorIndices",
+        "BitVec"
       ]
     ]
   },
@@ -266,6 +471,13 @@ var BaseType = `{
       "All"
     ]
   },
+  "BalanceStatus": {
+    "type": "enum",
+    "value_list": [
+      "Free",
+      "Reserved"
+    ]
+  },
   "NextAuthority": {
     "type": "struct",
     "type_mapping": [
@@ -296,7 +508,8 @@ var BaseType = `{
     "type": "enum",
     "value_list": [
       "Normal",
-      "Operational"
+      "Operational",
+      "Mandatory"
     ]
   },
   "DispatchInfo": {
@@ -480,7 +693,47 @@ var BaseType = `{
       ]
     ]
   },
+  "OpenTip": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "reason",
+        "Hash"
+      ],
+      [
+        "who",
+        "AccountId"
+      ],
+      [
+        "finder",
+        "AccountId"
+      ],
+      [
+        "deposit",
+        "Balance"
+      ],
+      [
+        "closes",
+        "Option<BlockNumber>"
+      ],
+      [
+        "tips",
+        "Vec<OpenTipTip>"
+      ],
+      [
+        "findersFee",
+        "bool"
+      ]
+    ]
+  },
   "ParaScheduling": {
+    "type": "enum",
+    "value_list": [
+      "Always",
+      "Dynamic"
+    ]
+  },
+  "Scheduling": {
     "type": "enum",
     "value_list": [
       "Always",
@@ -606,6 +859,7 @@ var BaseType = `{
       ]
     ]
   },
+  "WinningData": "Vec<WinningDataEntry>",
   "WinningDataEntry": {
     "type": "struct",
     "type_mapping": [
@@ -749,32 +1003,6 @@ var BaseType = `{
       [
         "logs",
         "Vec<DigestItem<Hash>>"
-      ]
-    ]
-  },
-  "SpanRecord": {
-    "type": "struct",
-    "type_mapping": [
-      [
-        "slashed",
-        "Balance"
-      ],
-      [
-        "paidOut",
-        "Balance"
-      ]
-    ]
-  },
-  "UnappliedSlashOther": {
-    "type": "struct",
-    "type_mapping": [
-      [
-        "account",
-        "AccountId"
-      ],
-      [
-        "amount",
-        "Balance"
       ]
     ]
   },
@@ -1628,7 +1856,7 @@ var BaseType = `{
     "type": "enum",
     "type_mapping": [
       [
-        "None",
+        "Never",
         "Null"
       ],
       [
@@ -1679,6 +1907,10 @@ var BaseType = `{
         "Hash"
       ],
       [
+        "codeSize",
+        "u32"
+      ],
+      [
         "initialHeadData",
         "Bytes"
       ]
@@ -1698,6 +1930,32 @@ var BaseType = `{
       [
         "Deploy",
         "IncomingParachainDeploy"
+      ]
+    ]
+  },
+  "Bidder": {
+    "type": "enum",
+    "type_mapping": [
+      [
+        "New",
+        "NewBidder"
+      ],
+      [
+        "Existing",
+        "ParaId"
+      ]
+    ]
+  },
+  "NewBidder": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "who",
+        "AccountId"
+      ],
+      [
+        "sub",
+        "SubId"
       ]
     ]
   },
@@ -1828,7 +2086,681 @@ var BaseType = `{
     ]
   },
   "schedule::Priority": "u8",
+  "GrandpaPrevote": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "targetHash",
+        "Hash"
+      ],
+      [
+        "targetNumber",
+        "BlockNumber"
+      ]
+    ]
+  },
+  "Equivocation": "GrandpaEquivocation",
+  "ValidatorPrefs": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "Commission",
+        "Compact<Balance>"
+      ]
+    ]
+  },
+  "StoredPendingChange": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "scheduled_at",
+        "u32"
+      ],
+      [
+        "forced",
+        "u32"
+      ]
+    ]
+  },
+  "Votes": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "index",
+        "ProposalIndex"
+      ],
+      [
+        "threshold",
+        "MemberCount"
+      ],
+      [
+        "ayes",
+        "Vec<AccountId>"
+      ],
+      [
+        "nays",
+        "Vec<AccountId>"
+      ]
+    ]
+  },
+  "SigningContext": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "sessionIndex",
+        "sessionIndex"
+      ],
+      [
+        "parentHash",
+        "Hash"
+      ]
+    ]
+  },
+  "MembershipProof": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "session",
+        "sessionIndex"
+      ],
+      [
+        "trieNodes",
+        "Vec<Vec<u8>>"
+      ],
+      [
+        "validatorCount",
+        "ValidatorCount"
+      ]
+    ]
+  },
+  "DoubleVoteReport": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "identity",
+        "ValidatorId"
+      ],
+      [
+        "first",
+        "(Statement, ValidatorSignature)"
+      ],
+      [
+        "second",
+        "(Statement, ValidatorSignature)"
+      ],
+      [
+        "proof",
+        "MembershipProof"
+      ],
+      [
+        "signingContext",
+        "SigningContext"
+      ]
+    ]
+  },
+  "ProxyType": {
+    "type": "enum",
+    "value_list": [
+      "Any",
+      "NonTransfer",
+      "Governance",
+      "Staking"
+    ]
+  },
+  "AbridgedCandidateReceipt": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "parachainIndex",
+        "ParaId"
+      ],
+      [
+        "relayParent",
+        "Hash"
+      ],
+      [
+        "headData",
+        "HeadData"
+      ],
+      [
+        "collator",
+        "CollatorId"
+      ],
+      [
+        "signature",
+        "CollatorSignature"
+      ],
+      [
+        "povBlockHash",
+        "Hash"
+      ],
+      [
+        "commitments",
+        "CandidateCommitments"
+      ]
+    ]
+  },
+  "UpwardMessage": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "origin",
+        "ParachainDispatchOrigin"
+      ],
+      [
+        "data",
+        "Vec<u8>"
+      ]
+    ]
+  },
+  "CandidateCommitments": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "fees",
+        "Balance"
+      ],
+      [
+        "upwardMessages",
+        "Vec<UpwardMessage>"
+      ],
+      [
+        "erasureRoot",
+        "Hash"
+      ],
+      [
+        "newValidationCode",
+        "Option<ValidationCode>"
+      ],
+      [
+        "processedDownwardMessages",
+        "u32"
+      ]
+    ]
+  },
+  "DownwardMessage": {
+    "type": "enum",
+    "type_mapping": [
+      [
+        "TransferInto",
+        "(AccountId, Balance, Remark)"
+      ],
+      [
+        "Opaque",
+        "Vec<u8>"
+      ]
+    ]
+  },
+  "GlobalValidationSchedule": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "maxCodeSize",
+        "u32"
+      ],
+      [
+        "maxHeadDataSize",
+        "u32"
+      ],
+      [
+        "blockNumber",
+        "BlockNumber"
+      ]
+    ]
+  },
+  "IncomingParachainDeploy": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "code",
+        "ValidationCode"
+      ],
+      [
+        "initialHeadData",
+        "HeadData"
+      ]
+    ]
+  },
+  "LocalValidationData": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "parentHead",
+        "HeadData"
+      ],
+      [
+        "balance",
+        "Balance"
+      ],
+      [
+        "codeUpgradeAllowed",
+        "Option<BlockNumber>"
+      ]
+    ]
+  },
+  "ParachainDispatchOrigin": {
+    "type": "enum",
+    "value_list": [
+      "Signed",
+      "Parachain",
+      "Root"
+    ]
+  },
+  "Period": "(BlockNumber, u32)",
+  "Priority": "u8",
+  "SchedulePeriod": "(BlockNumber, u32)",
+  "SchedulePriority": "u8",
+  "Scheduled": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "maybeId",
+        "Option<Bytes>"
+      ],
+      [
+        "priority",
+        "SchedulePriority"
+      ],
+      [
+        "call",
+        "Call"
+      ],
+      [
+        "maybePeriodic",
+        "Option<SchedulePeriod>"
+      ]
+    ]
+  },
+  "schedule::Period<BlockNumber>": "(BlockNumber, u32)",
+  "ChangesTrieConfiguration": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "digestInterval",
+        "u32"
+      ],
+      [
+        "digestLevels",
+        "u32"
+      ]
+    ]
+  },
+  "BalanceLock<Balance, BlockNumber>": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "id",
+        "LockIdentifier"
+      ],
+      [
+        "amount",
+        "Balance"
+      ],
+      [
+        "reasons",
+        "Reasons"
+      ]
+    ]
+  },
+  "AssetOptions": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "initalIssuance",
+        "Compact<Balance>"
+      ],
+      [
+        "permissions",
+        "PermissionLatest"
+      ]
+    ]
+  },
+  "Owner": {
+    "type": "enum",
+    "type_mapping": [
+      [
+        "None",
+        "Null"
+      ],
+      [
+        "Address",
+        "AccountId"
+      ]
+    ]
+  },
+  "PermissionsV1": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "update",
+        "Owner"
+      ],
+      [
+        "mint",
+        "Owner"
+      ],
+      [
+        "burn",
+        "Owner"
+      ]
+    ]
+  },
+  "PermissionVersions": {
+    "type": "enum",
+    "type_mapping": [
+      [
+        "V1",
+        "PermissionsV1"
+      ]
+    ]
+  },
+  "PermissionLatest": "PermissionsV1",
+  "Approvals": "[bool; 4]",
+  "ContractCallRequest": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "origin",
+        "AccountId"
+      ],
+      [
+        "dest",
+        "AccountId"
+      ],
+      [
+        "value",
+        "Balance"
+      ],
+      [
+        "gasLimit",
+        "u64"
+      ],
+      [
+        "inputData",
+        "Bytes"
+      ]
+    ]
+  },
+  "ContractExecResultSuccess": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "flags",
+        "u32"
+      ],
+      [
+        "data",
+        "Vec<u8>"
+      ],
+      [
+        "gasConsumed",
+        "u64"
+      ]
+    ]
+  },
+  "ContractExecResult": {
+    "type": "enum",
+    "type_mapping": [
+      [
+        "Success",
+        "ContractExecResultSuccess"
+      ],
+      [
+        "Error",
+        "Null"
+      ]
+    ]
+  },
+  "ContractStorageKey": "[u8; 32]",
+  "PrefabWasmModule": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "scheduleVersion",
+        "Compact<u32>"
+      ],
+      [
+        "initial",
+        "Compact<u32>"
+      ],
+      [
+        "maximum",
+        "Compact<u32>"
+      ],
+      [
+        "_reserved",
+        "PrefabWasmModuleReserved"
+      ],
+      [
+        "code",
+        "Bytes"
+      ]
+    ]
+  },
+  "PrefabWasmModuleReserved": "Option<Null>",
+  "ContractExecResultSuccessTo255": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "status",
+        "u8"
+      ],
+      [
+        "data",
+        "Raw"
+      ]
+    ]
+  },
+  "ContractExecResultTo255": {
+    "type": "enum",
+    "type_mapping": [
+      [
+        "Success",
+        "ContractExecResultSuccessTo255"
+      ],
+      [
+        "Error",
+        "Null"
+      ]
+    ]
+  },
+  "AccountStatus": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "validity",
+        "AccountValidity"
+      ],
+      [
+        "freeBalance",
+        "Balance"
+      ],
+      [
+        "lockedBalance",
+        "Balance"
+      ],
+      [
+        "signature",
+        "Vec<u8>"
+      ],
+      [
+        "vat",
+        "Permill"
+      ]
+    ]
+  },
+  "AccountValidity": {
+    "type": "enum",
+    "value_list": [
+      "Invalid",
+      "Initiated",
+      "Pending",
+      "ValidLow",
+      "ValidHigh",
+      "Completed"
+    ]
+  },
+  "TreasuryProposal": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "proposer",
+        "AccountId"
+      ],
+      [
+        "value",
+        "Balance"
+      ],
+      [
+        "beneficiary",
+        "AccountId"
+      ],
+      [
+        "bond",
+        "Balance"
+      ]
+    ]
+  },
+  "RawBabePreDigestCompat": {
+    "type": "enum",
+    "type_mapping": [
+      [
+        "Zero",
+        "u32"
+      ],
+      [
+        "One",
+        "u32"
+      ],
+      [
+        "Two",
+        "u32"
+      ],
+      [
+        "Three",
+        "u32"
+      ]
+    ]
+  },
+  "BabeAuthorityWeight": "u64",
+  "BabeBlockWeight": "u32",
+  "BabeEquivocationProof": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "offender",
+        "AuthorityId"
+      ],
+      [
+        "slotNumber",
+        "SlotNumber"
+      ],
+      [
+        "firstHeader",
+        "Header"
+      ],
+      [
+        "secondHeader",
+        "Header"
+      ]
+    ]
+  },
+  "BabeWeight": "u64",
+  "EpochAuthorship": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "primary",
+        "Vec<u64>"
+      ],
+      [
+        "secondary",
+        "Vec<u64>"
+      ]
+    ]
+  },
+  "RpcMethods": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "version",
+        "u32"
+      ],
+      [
+        "methods",
+        "Vec<Text>"
+      ]
+    ]
+  },
+  "CreatedBlock": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "hash",
+        "BlockHash"
+      ],
+      [
+        "aux",
+        "ImportedAux"
+      ]
+    ]
+  },
+  "ImportedAux": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "headerOnly",
+        "bool"
+      ],
+      [
+        "clearJustificationRequests",
+        "bool"
+      ],
+      [
+        "needsJustification",
+        "bool"
+      ],
+      [
+        "badJustification",
+        "bool"
+      ],
+      [
+        "needsFinalityProof",
+        "bool"
+      ],
+      [
+        "isNewBest",
+        "bool"
+      ]
+    ]
+  },
+  "GrandpaEquivocationProof": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "setId",
+        "SetId"
+      ],
+      [
+        "equivocation",
+        "GrandpaEquivocation"
+      ]
+    ]
+  },
   "GrandpaEquivocation": {
+    "type": "enum",
+    "type_mapping": [
+      [
+        "Prevote",
+        "GrandpaEquivocationValue"
+      ],
+      [
+        "Precommit",
+        "GrandpaEquivocationValue"
+      ]
+    ]
+  },
+  "GrandpaEquivocationValue": {
     "type": "struct",
     "type_mapping": [
       [
@@ -1849,52 +2781,7 @@ var BaseType = `{
       ]
     ]
   },
-  "GrandpaPrevote": {
-    "type": "struct",
-    "type_mapping": [
-      [
-        "targetHash",
-        "Hash"
-      ],
-      [
-        "targetNumber",
-        "BlockNumber"
-      ]
-    ]
-  },
-  "Equivocation": {
-    "type": "enum",
-    "type_mapping": [
-      [
-        "Prevote",
-        "GrandpaEquivocation"
-      ],
-      [
-        "Precommit",
-        "GrandpaEquivocation"
-      ]
-    ]
-  },
-  "EquivocationProof": {
-    "type": "struct",
-    "type_mapping": [
-      [
-        "setId",
-        "SetId"
-      ],
-      [
-        "equivocation",
-        "Equivocation"
-      ]
-    ]
-  },
-  "ValidatorPrefs": {
-    "type": "struct",
-    "type_mapping": [
-      [
-        "Commission",
-        "Compact<Balance>"
-      ]
-    ]
-  }
-}`
+  "EquivocationProof<Header>": "BabeEquivocationProof",
+  "EquivocationProof<Hash, BlockNumber>": "GrandpaEquivocationProof"
+}
+`

@@ -9,9 +9,9 @@ import (
 )
 
 func TestLoadTypeRegistry(t *testing.T) {
-	cc, err := ioutil.ReadFile(fmt.Sprintf("%s.json", config.Edgeware))
+	cc, err := ioutil.ReadFile(fmt.Sprintf("%s.json", config.Polkadot))
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println( hex.EncodeToString(cc))
+	fmt.Println(hex.EncodeToString(cc))
 }

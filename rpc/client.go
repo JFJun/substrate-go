@@ -12,10 +12,10 @@ import (
 	"github.com/JFJun/substrate-go/ss58"
 	"github.com/JFJun/substrate-go/state"
 	"github.com/JFJun/substrate-go/util"
-	codes "github.com/freehere107/go-scale-codec"
-	"github.com/freehere107/go-scale-codec/source"
-	"github.com/freehere107/go-scale-codec/types"
-	"github.com/freehere107/go-scale-codec/utiles"
+	codes "github.com/itering/scale.go"
+	"github.com/itering/scale.go/source"
+	"github.com/itering/scale.go/types"
+	"github.com/itering/scale.go/utiles"
 	"golang.org/x/crypto/blake2b"
 	"math/big"
 	"strconv"
@@ -178,7 +178,6 @@ func (client *Client) GetBlockByNumber(height int64) (*v11.BlockResponse, error)
 		return nil, fmt.Errorf("get block hash error,err=%v", err)
 	}
 	blockHash := string(respData)
-
 	return client.GetBlockByHash(blockHash)
 }
 

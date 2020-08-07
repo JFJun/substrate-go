@@ -243,7 +243,7 @@ func TestCompactIntegersEncodedAsExpected(t *testing.T) {
 		1 << 32:        "07 00 00 00 00 01",
 		1 << 40:        "0b 00 00 00 00 00 01",
 		1 << 48:        "0f 00 00 00 00 00 00 01",
-		1<<56 - 1:      "0f ff ff ff ff ff ff ff",
+		1 << (56 - 1):  "0f ff ff ff ff ff ff ff",
 		1 << 56:        "13 00 00 00 00 00 00 00 01",
 		math.MaxUint64: "13 ff ff ff ff ff ff ff ff"}
 	for value, expectedHex := range tests {
