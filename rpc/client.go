@@ -272,7 +272,7 @@ func (client *Client) parseExtrinsicByDecode(extrinsics []string, blockResp *v11
 			blockData.txid = createTxHash(extrinsic)
 			for _, param := range resp.Params {
 				if param.Name == "dest" {
-					blockData.to, _ = ss58.EncodeByPubHex(param.ValueRaw, config.PrefixMap[client.CoinType])
+					blockData.to, _ = ss58.EncodeByPubHex(param.Value.(string), config.PrefixMap[client.CoinType])
 				}
 			}
 
