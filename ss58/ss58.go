@@ -3,7 +3,6 @@ package ss58
 import (
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"github.com/JFJun/substrate-go/config"
 	"github.com/JFJun/substrate-go/util"
 	"github.com/btcsuite/btcutil/base58"
@@ -18,7 +17,6 @@ func Encode(publicKeyHash []byte, prefix []byte) (string, error) {
 	input := util.AppendBytes(config.SSPrefix, payload)
 	ck := blake2b.Sum512(input)
 	checkum := ck[:2]
-	fmt.Println(util.AppendBytes(payload, checkum))
 	address := base58.Encode(util.AppendBytes(payload, checkum))
 	if address == "" {
 		return address, errors.New("base58 encode error")
