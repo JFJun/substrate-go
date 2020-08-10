@@ -43,6 +43,7 @@ func New(url, user, password string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	client.registerTypes()
 	return client, nil
 }
 
@@ -66,6 +67,14 @@ func (client *Client) initMetaData() error {
 	return nil
 }
 
+/*
+注册types
+*/
+func (client *Client) registerTypes() {
+	ccHex := config.CoinEventType[client.CoinType]
+	cc, _ := hex.DecodeString(ccHex)
+	types.RegCustomTypes(source.LoadTypeRegistry(cc))
+}
 func (client *Client) initRuntimeVersion() error {
 	data, err := client.Rpc.SendRequest("state_getRuntimeVersion", []interface{}{})
 	if err != nil {
@@ -341,9 +350,9 @@ func (client *Client) parseExtrinsicByStorage(blockHash string, blockResp *v11.B
 	eventsHex := string(resp)
 	//解析events
 	option := types.ScaleDecoderOption{Metadata: &client.Metadata.Metadata, Spec: client.SpecVersion}
-	ccHex := config.CoinEventType[client.CoinType]
-	cc, _ := hex.DecodeString(ccHex)
-	types.RegCustomTypes(source.LoadTypeRegistry(cc))
+	//ccHex := config.CoinEventType[client.CoinType]
+	//cc, _ := hex.DecodeString(ccHex)
+	//types.RegCustomTypes(source.LoadTypeRegistry(cc))
 	e := codes.EventsDecoder{}
 	e.Init(types.ScaleBytes{Data: utiles.HexToBytes(eventsHex)}, &option)
 	e.Process()
