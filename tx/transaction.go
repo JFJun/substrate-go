@@ -5,9 +5,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	codec "github.com/JFJun/substrate-go/codes"
 	"github.com/JFJun/substrate-go/sr25519"
 	"github.com/JFJun/substrate-go/ss58"
+	"github.com/JFJun/substrate-go/util"
 	"strings"
 )
 
@@ -105,22 +105,34 @@ func (tx *Transaction) NewTxPayload() (*TxPayLoad, error) {
 	if tx.Nonce == 0 {
 		tp.Nonce = []byte{0}
 	} else {
-		nonce, err := codec.Encode(Compact_U32, uint64(tx.Nonce))
+		//nonce, err := codec.Encode(Compact_U32, uint64(tx.Nonce))
+		//if err != nil {
+		//	return nil, err
+		//}
+		//tp.Nonce, _ = hex.DecodeString(nonce)
+
+		nonce, err := util.UCompactEncode(tx.Nonce)
 		if err != nil {
 			return nil, err
 		}
-		tp.Nonce, _ = hex.DecodeString(nonce)
+		tp.Nonce = nonce
 	}
 
 	if tx.Fee == 0 {
 		//return nil, errors.New("a none zero fee must be payed")
 		tp.Fee = []byte{0}
 	} else {
-		fee, err := codec.Encode(Compact_U32, uint64(tx.Fee))
+		//fee, err := codec.Encode(Compact_U32, uint64(tx.Fee))
+		//if err != nil {
+		//	return nil, err
+		//}
+		//tp.Fee, _ = hex.DecodeString(fee)
+
+		fee, err := util.UCompactEncode(tx.Fee)
 		if err != nil {
 			return nil, err
 		}
-		tp.Fee, _ = hex.DecodeString(fee)
+		tp.Fee = fee
 	}
 
 	specv := make([]byte, 4)
@@ -238,42 +250,37 @@ func (tx *Transaction) GetSignTransaction(signature string) (string, error) {
 	if tx.Nonce == 0 {
 		signed = append(signed, 0)
 	} else {
-		nonce, err := codec.Encode(Compact_U32, uint64(tx.Nonce))
+		//nonce, err := codec.Encode(Compact_U32, uint64(tx.Nonce))
+		//if err != nil {
+		//	return "", err
+		//}
+		//
+		//nonceBytes, _ := hex.DecodeString(nonce)
+		//signed = append(signed, nonceBytes...)
+		nonce, err := util.UCompactEncode(tx.Nonce)
 		if err != nil {
 			return "", err
 		}
-
-		nonceBytes, _ := hex.DecodeString(nonce)
-		signed = append(signed, nonceBytes...)
-		//fmt.Println("nonce",nonce)
-		//uNonce:=types.UCompact(tx.Nonce)
-		//var buf = bytes.Buffer{}
-		//s:=scale.NewEncoder(&buf)
-		//errA:=uNonce.Encode(*s)
-		//if errA != nil {
-		//	return "", fmt.Errorf("encode ucompact nonce error,Err=[%v]",errA)
-		//}
-		//signed = append(signed,buf.Bytes()...)
+		signed = append(signed, nonce...)
 	}
 
 	if tx.Fee == 0 {
 		//return "", errors.New("a none zero fee must be payed")
 		signed = append(signed, []byte{0}...)
 	} else {
-		fee, err := codec.Encode(Compact_U32, uint64(tx.Fee))
+		//fee, err := codec.Encode(Compact_U32, uint64(tx.Fee))
+		//if err != nil {
+		//	return "", err
+		//}
+		//feeBytes, _ := hex.DecodeString(fee)
+		//signed = append(signed, feeBytes...)
+
+		fee, err := util.UCompactEncode(tx.Fee)
 		if err != nil {
 			return "", err
 		}
-		feeBytes, _ := hex.DecodeString(fee)
-		signed = append(signed, feeBytes...)
-		//uTip:=types.UCompact(tx.Fee)
-		//var buf = bytes.Buffer{}
-		//s:=scale.NewEncoder(&buf)
-		//errA:=uTip.Encode(*s)
-		//if errA != nil {
-		//	return "", fmt.Errorf("encode ucompact nonce error,Err=[%v]",errA)
-		//}
-		//signed = append(signed, buf.Bytes()...)
+		signed = append(signed, fee...)
+
 	}
 
 	method, err := NewMethodTransfer(tx.RecipientPubkey, tx.Amount)
@@ -287,13 +294,16 @@ func (tx *Transaction) GetSignTransaction(signature string) (string, error) {
 	}
 	signed = append(signed, methodBytes...)
 
-	length, err := codec.Encode(Compact_U32, uint64(len(signed)))
-
+	//length, err := codec.Encode(Compact_U32, uint64(len(signed)))
+	//if err != nil {
+	//	return "", err
+	//}
+	//lengthBytes, _ := hex.DecodeString(length)
+	//lengthBytes[0] += 1
+	//return "0x" + hex.EncodeToString(lengthBytes) + hex.EncodeToString(signed), nil
+	length, err := util.UCompactEncode(uint64(len(signed)))
 	if err != nil {
 		return "", err
 	}
-	lengthBytes, _ := hex.DecodeString(length)
-
-	lengthBytes[0] += 1
-	return "0x" + hex.EncodeToString(lengthBytes) + hex.EncodeToString(signed), nil
+	return "0x" + hex.EncodeToString(length) + hex.EncodeToString(signed), nil
 }
