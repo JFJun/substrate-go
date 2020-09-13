@@ -17,6 +17,7 @@ import (
 	"github.com/itering/scale.go/types"
 	"github.com/itering/scale.go/utiles"
 	"golang.org/x/crypto/blake2b"
+	"log"
 	"math/big"
 	"strconv"
 	"strings"
@@ -245,7 +246,7 @@ func (client *Client) parseExtrinsicByDecode(extrinsics []string, blockResp *v11
 		if err := recover(); err != nil {
 			blockResp.Timestamp = timestamp
 			blockResp.Extrinsic = []*v11.ExtrinsicResponse{}
-			fmt.Printf("panic unkown decode type: err=%v\n", err)
+			log.Printf("parse %d block extrinsic error, err=%v\n", blockResp.Height, err)
 		}
 	}()
 
@@ -339,6 +340,11 @@ func (client *Client) parseExtrinsicByStorage(blockHash string, blockResp *v11.B
 		key  string
 		resp []byte
 	)
+	defer func() {
+		if err := recover(); err != nil {
+			log.Printf("parse %d block event error, err=%v\n", blockResp.Height, err)
+		}
+	}()
 	key, err = state.CreateStorageKey(client.Metadata, "System", "Events", nil, nil)
 	if err != nil {
 		return fmt.Errorf("create stroage key error,err=%v", err)
