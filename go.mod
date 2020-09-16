@@ -6,6 +6,7 @@ require (
 	github.com/ChainSafe/go-schnorrkel v0.0.0-20200405005733-88cbf1b4c40d
 	github.com/btcsuite/btcutil v1.0.2
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/gorilla/websocket v1.4.2
 	//github.com/itering/scale.go v0.0.0-20200529075722-ff6828f3c6ed
 	github.com/gtank/ristretto255 v0.1.2
 	github.com/itering/scale.go v0.2.3

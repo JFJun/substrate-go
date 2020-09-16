@@ -24,7 +24,7 @@ import (
 )
 
 type Client struct {
-	Rpc                *util.RpcClient
+	Rpc                IClient
 	Metadata           *codes.MetadataDecoder
 	CoinType           string
 	SpecVersion        int
@@ -32,13 +32,20 @@ type Client struct {
 	genesisHash        string
 }
 
+type IClient interface {
+	SendRequest(method string, params []interface{}) ([]byte, error)
+}
+
 func New(url, user, password string) (*Client, error) {
 	client := new(Client)
-	if strings.HasPrefix(url, "wss") {
-		//todo 连接websocket
-		return client, errors.New("do not support websocket")
+	if strings.HasPrefix(url, "wss") || strings.HasPrefix(url, "ws") {
+		socket := util.NewWebsocket(url)
+		client.Rpc = &socket
+	} else if strings.HasPrefix(url, "http") || strings.HasPrefix(url, "https") {
+		client.Rpc = util.New(url, user, password)
+	} else {
+		return nil, fmt.Errorf("unsopport url=%s", url)
 	}
-	client.Rpc = util.New(url, user, password)
 	//初始化运行版本
 	err := client.initRuntimeVersion()
 	if err != nil {
