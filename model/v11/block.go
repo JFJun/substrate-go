@@ -84,4 +84,5 @@ type ExtrinsicResponse struct {
 	Nonce          int64  `json:"nonce"`
 	Era            string `json:"era"`
 	ExtrinsicIndex int    `json:"extrinsic_index"`
+	EventIndex     int    `json:"event_index"`
 }
