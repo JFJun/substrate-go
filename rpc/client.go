@@ -461,7 +461,7 @@ func (client *Client) parseExtrinsicByStorage(blockHash string, blockResp *v11.B
 		for _, e := range blockResp.Extrinsic {
 
 			for _, res := range result {
-				if e.ExtrinsicIndex == res.ExtrinsicIdx && e.ToAddress == res.To {
+				if e.ExtrinsicIndex == res.ExtrinsicIdx {
 					//判断是否是有效交易
 					if statusMap[e.ExtrinsicIndex] {
 						e.Status = "success"
@@ -472,6 +472,7 @@ func (client *Client) parseExtrinsicByStorage(blockHash string, blockResp *v11.B
 					e.Amount = res.Amount
 					e.Fee = client.calcFee(eventResp, e.ExtrinsicIndex)
 					e.EventIndex = res.EventIdx
+					e.ToAddress = res.To //extrinsic 里面的to地址有可能解析错误，但是event里面的to地址是正确的，所以使用event里面的他to地址
 				}
 			}
 		}
