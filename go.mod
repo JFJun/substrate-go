@@ -7,9 +7,9 @@ require (
 	github.com/btcsuite/btcutil v1.0.2
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gorilla/websocket v1.4.2
-	//github.com/itering/scale.go v0.0.0-20200529075722-ff6828f3c6ed
 	github.com/gtank/ristretto255 v0.1.2
-	github.com/itering/scale.go v0.2.3
+	github.com/itering/scale.go v0.7.0
+	//github.com/itering/scale.go v0.2.3
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/pierrec/xxHash v0.1.5
 	github.com/stretchr/testify v1.6.1
