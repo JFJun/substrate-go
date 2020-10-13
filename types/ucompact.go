@@ -1,6 +1,8 @@
 package types
 
 import (
+	"bytes"
+	"fmt"
 	"github.com/JFJun/substrate-go/scale"
 )
 
@@ -24,4 +26,15 @@ func (u UCompact) Encode(encoder scale.Encoder) error {
 		return err
 	}
 	return nil
+}
+
+func UCompactEncodeUint(data uint64) ([]byte, error) {
+	uAmount := UCompact(data)
+	var buffer = bytes.Buffer{}
+	s := scale.NewEncoder(&buffer)
+	err := uAmount.Encode(*s)
+	if err != nil {
+		return nil, fmt.Errorf("encode UCompact error,Err=[%v]", err)
+	}
+	return buffer.Bytes(), nil
 }
