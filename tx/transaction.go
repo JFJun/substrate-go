@@ -7,7 +7,7 @@ import (
 	"errors"
 	"github.com/JFJun/substrate-go/sr25519"
 	"github.com/JFJun/substrate-go/ss58"
-	"github.com/JFJun/substrate-go/util"
+	"github.com/JFJun/substrate-go/types"
 	"strings"
 )
 
@@ -23,6 +23,8 @@ type Transaction struct {
 	SpecVersion        uint32 `json:"spec_version"`
 	TransactionVersion uint32 `json:"transaction_version"`
 	CallId             string `json:"call_id"` //
+	UtilityBatchCallId string
+	PubkeyAmount       map[string]uint64 `json:"pubkey_amount"` //用于utilityBatch
 }
 
 /*
@@ -38,6 +40,18 @@ func CreateTransaction(from, to string, amount, nonce, fee uint64) *Transaction 
 		Fee:             fee,
 	}
 	return &tx
+}
+func CreateUtilityBatchTransaction(from, utilityBatchCallId string, nonce uint64, address_amount map[string]uint64) *Transaction {
+	tx := new(Transaction)
+	tx.SenderPubkey = AddressToPublicKey(from)
+	tx.Nonce = nonce
+	pub_amount := make(map[string]uint64)
+	for address, amount := range address_amount {
+		pub_amount[AddressToPublicKey(address)] = amount
+	}
+	tx.PubkeyAmount = pub_amount
+	tx.UtilityBatchCallId = utilityBatchCallId
+	return tx
 }
 
 func (tx *Transaction) SetGenesisHashAndBlockHash(genesisHash, blockHash string, blockNumber uint64) {
@@ -81,21 +95,35 @@ func (*Transaction) SignTransaction(private, message string) (string, error) {
 	}
 	return hex.EncodeToString(sig), nil
 }
-
 func (tx *Transaction) NewTxPayload() (*TxPayLoad, error) {
 	var tp TxPayLoad
-	method, err := NewMethodTransfer(tx.RecipientPubkey, tx.Amount)
-
-	if err != nil {
-		return nil, err
+	var (
+		methodBytes  []byte
+		err          error
+		transMethod  *MethodTransfer
+		utilityBatch *UtilityBatch
+	)
+	if len(tx.PubkeyAmount) > 0 && tx.RecipientPubkey == "" {
+		//todo utility batch
+		utilityBatch, err = NewUtilityBatch(tx.PubkeyAmount)
+		if err != nil {
+			return nil, err
+		}
+		methodBytes, err = utilityBatch.ToBytes(tx.UtilityBatchCallId, tx.CallId)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		transMethod, err = NewMethodTransfer(tx.RecipientPubkey, tx.Amount)
+		if err != nil {
+			return nil, err
+		}
+		methodBytes, err = transMethod.ToBytes(tx.CallId)
+		if err != nil {
+			return nil, err
+		}
 	}
-
-	tp.Method, err = method.ToBytes(tx.CallId)
-
-	if err != nil {
-		return nil, err
-	}
-
+	tp.Method = methodBytes
 	if tx.BlockHeight == 0 {
 		return nil, errors.New("invalid block height")
 	}
@@ -105,13 +133,7 @@ func (tx *Transaction) NewTxPayload() (*TxPayLoad, error) {
 	if tx.Nonce == 0 {
 		tp.Nonce = []byte{0}
 	} else {
-		//nonce, err := codec.Encode(Compact_U32, uint64(tx.Nonce))
-		//if err != nil {
-		//	return nil, err
-		//}
-		//tp.Nonce, _ = hex.DecodeString(nonce)
-
-		nonce, err := util.UCompactEncode(tx.Nonce)
+		nonce, err := types.UCompactEncodeUint(tx.Nonce)
 		if err != nil {
 			return nil, err
 		}
@@ -122,13 +144,7 @@ func (tx *Transaction) NewTxPayload() (*TxPayLoad, error) {
 		//return nil, errors.New("a none zero fee must be payed")
 		tp.Fee = []byte{0}
 	} else {
-		//fee, err := codec.Encode(Compact_U32, uint64(tx.Fee))
-		//if err != nil {
-		//	return nil, err
-		//}
-		//tp.Fee, _ = hex.DecodeString(fee)
-
-		fee, err := util.UCompactEncode(tx.Fee)
+		fee, err := types.UCompactEncodeUint(tx.Fee)
 		if err != nil {
 			return nil, err
 		}
@@ -188,7 +204,6 @@ func GetEra(height uint64) []byte {
 
 	return []byte{second, first}
 }
-
 func (tx *Transaction) ToJSONString() string {
 	j, _ := json.Marshal(tx)
 
@@ -250,60 +265,57 @@ func (tx *Transaction) GetSignTransaction(signature string) (string, error) {
 	if tx.Nonce == 0 {
 		signed = append(signed, 0)
 	} else {
-		//nonce, err := codec.Encode(Compact_U32, uint64(tx.Nonce))
-		//if err != nil {
-		//	return "", err
-		//}
-		//
-		//nonceBytes, _ := hex.DecodeString(nonce)
-		//signed = append(signed, nonceBytes...)
-		nonce, err := util.UCompactEncode(tx.Nonce)
+		nonce, err := types.UCompactEncodeUint(tx.Nonce)
 		if err != nil {
 			return "", err
 		}
+
 		signed = append(signed, nonce...)
 	}
 
 	if tx.Fee == 0 {
-		//return "", errors.New("a none zero fee must be payed")
 		signed = append(signed, []byte{0}...)
 	} else {
-		//fee, err := codec.Encode(Compact_U32, uint64(tx.Fee))
-		//if err != nil {
-		//	return "", err
-		//}
-		//feeBytes, _ := hex.DecodeString(fee)
-		//signed = append(signed, feeBytes...)
-
-		fee, err := util.UCompactEncode(tx.Fee)
+		fee, err := types.UCompactEncodeUint(tx.Fee)
 		if err != nil {
 			return "", err
 		}
+
 		signed = append(signed, fee...)
 
 	}
+	var (
+		methodBytes []byte
+		method      *MethodTransfer
+		ubMethod    *UtilityBatch
+	)
+	if len(tx.PubkeyAmount) > 0 && tx.RecipientPubkey == "" {
+		ubMethod, err = NewUtilityBatch(tx.PubkeyAmount)
+		if err != nil {
+			return "", err
+		}
+		methodBytes, err = ubMethod.ToBytes(tx.UtilityBatchCallId, tx.CallId)
+		if err != nil {
+			return "", err
+		}
+	} else {
+		method, err = NewMethodTransfer(tx.RecipientPubkey, tx.Amount)
+		if err != nil {
+			return "", err
+		}
 
-	method, err := NewMethodTransfer(tx.RecipientPubkey, tx.Amount)
-	if err != nil {
-		return "", err
+		methodBytes, err = method.ToBytes(tx.CallId)
+		if err != nil {
+			return "", err
+		}
 	}
 
-	methodBytes, err := method.ToBytes(tx.CallId)
-	if err != nil {
-		return "", err
-	}
 	signed = append(signed, methodBytes...)
 
-	//length, err := codec.Encode(Compact_U32, uint64(len(signed)))
-	//if err != nil {
-	//	return "", err
-	//}
-	//lengthBytes, _ := hex.DecodeString(length)
-	//lengthBytes[0] += 1
-	//return "0x" + hex.EncodeToString(lengthBytes) + hex.EncodeToString(signed), nil
-	length, err := util.UCompactEncode(uint64(len(signed)))
+	length, err := types.UCompactEncodeUint(uint64(len(signed)))
 	if err != nil {
 		return "", err
 	}
+
 	return "0x" + hex.EncodeToString(length) + hex.EncodeToString(signed), nil
 }
