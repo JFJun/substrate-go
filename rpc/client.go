@@ -84,6 +84,7 @@ func (client *Client) registerTypes() {
 	types.RegCustomTypes(source.LoadTypeRegistry(cc))
 }
 func (client *Client) initRuntimeVersion() error {
+
 	data, err := client.Rpc.SendRequest("state_getRuntimeVersion", []interface{}{})
 	if err != nil {
 		return fmt.Errorf("init runtime version error,err=%v", err)
@@ -577,4 +578,28 @@ func createTxHash(extrinsic string) string {
 	data, _ := hex.DecodeString(util.RemoveHex0x(extrinsic))
 	d := blake2b.Sum256(data)
 	return "0x" + hex.EncodeToString(d[:])
+}
+
+/*
+使用的第三方包没有提供查找callidx的接口，所以得自己遍历查找，没的办法
+*/
+func (client *Client) GetCallIdx(moduleName, fn string) (callIdx string, err error) {
+	//避免指针为空
+	defer func() {
+		if errs := recover(); errs != nil {
+			callIdx = ""
+			err = fmt.Errorf("catch panic ,err=%v", errs)
+		}
+	}()
+
+	for _, mod := range client.Metadata.Metadata.Metadata.Modules {
+		if mod.Name == moduleName {
+			for _, call := range mod.Calls {
+				if call.Name == fn {
+					return call.Lookup, nil
+				}
+			}
+		}
+	}
+	return "", errors.New("do not find this call index")
 }
