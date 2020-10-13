@@ -64,3 +64,12 @@ func Test_parseEvent(t *testing.T) {
 	}
 	fmt.Println(string(data))
 }
+
+func Test_GetCallIdx(t *testing.T) {
+	client, _ := rpc.New("http://ksm.rylink.io:30933", "", "")
+	callIdx, err := client.GetCallIdx("Balances", "transfer")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(callIdx)
+}
