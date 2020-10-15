@@ -123,7 +123,7 @@ func createPrefixedKey(module, fn string) []byte {
 
 type AccountInfo struct {
 	Nonce    U32 `json:"nonce"`
-	Refcount U8  `json:"ref_count"`
+	Refcount U32 `json:"ref_count"`
 	Data     struct {
 		Free       U128 `json:"free"`
 		Reserved   U128 `json:"reserved"`
