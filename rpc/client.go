@@ -462,7 +462,7 @@ func (client *Client) parseExtrinsicByStorage(blockHash string, blockResp *v11.B
 		for _, e := range blockResp.Extrinsic {
 
 			for _, res := range result {
-				if e.ExtrinsicIndex == res.ExtrinsicIdx {
+				if e.ExtrinsicIndex == res.ExtrinsicIdx && e.ToAddress == res.To {
 					//判断是否是有效交易
 					if statusMap[e.ExtrinsicIndex] {
 						e.Status = "success"
