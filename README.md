@@ -1,8 +1,7 @@
 # substrate go sdk
 ## 注意
-    请使用最新的包版本v1.2.0
-    目前这个包写的比较乱，后续会对这个包进行一个大的改动，会升级到v2.0
-    原因之一是因为使用的第三方包(github.com/itering/scale.go)里面存在panic，导致有些区块解析不出来，所以自己重写了一个包。后续会进行替换
+    请使用最新的包(github.com/JFJun/stafi-substrate-go)或者最新版本v1.2.3
+    建议使用github.com/JFJun/stafi-substrate-go这个包，新的这个包更加简洁与稳定    
 ## 介绍
     目前该包支持dot,ksm以及crab(其他的substrate下的币种没测，应该也能用)的以下功能,如果要解析pcx，可以使用https://github.com/JFJun/chainX-go.git
     目前主要提供了三个功能
